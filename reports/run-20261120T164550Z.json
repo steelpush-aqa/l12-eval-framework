@@ -1,0 +1,71 @@
+{
+  "prompt_version": "base.v1",
+  "set_hash": "544b44ffb639",
+  "profile": "clean+D26",
+  "judge_model": "not-used",
+  "rubric_version": "rubric.v1",
+  "elapsed": 5.1,
+  "set": "l12",
+  "gate": "daily",
+  "case_filter": [],
+  "stand_prompt_label": "base.v1",
+  "ran_at": "2026-11-20T16:45:50+00:00",
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "total": 1,
+  "machine": {
+    "agent_calls": 1,
+    "cost_usd": 0.0
+  },
+  "unit_tests": {
+    "l11_dir": "/course/l11",
+    "manual": {
+      "exit_code": 0,
+      "passed": 6,
+      "failed": 0,
+      "summary": "6 passed in 0.02s"
+    },
+    "generated": {
+      "exit_code": 0,
+      "passed": 69,
+      "failed": 0,
+      "summary": "69 passed in 0.12s"
+    }
+  },
+  "exit_code": 1,
+  "cases": [
+    {
+      "id": "JNT-026",
+      "set": "l12",
+      "layer": "action",
+      "gate": "daily",
+      "assertion": "joint",
+      "passed": false,
+      "skipped": false,
+      "level": 4,
+      "detail": "cross_dispute_under_hold: рушій відмовляє, а інструмент каже «можна» і у disputes є рядок по транзакції (1)",
+      "checks": [
+        {
+          "label": "disputes_window_ok",
+          "level": 1,
+          "passed": true,
+          "detail": "вікно: pass"
+        },
+        {
+          "label": "compliance_hold_flag",
+          "level": 1,
+          "passed": true,
+          "detail": "compliance_hold стоїть"
+        },
+        {
+          "label": "cross_dispute_under_hold",
+          "level": 4,
+          "passed": false,
+          "detail": "рушій відмовляє, а інструмент каже «можна» і у disputes є рядок по транзакції (1)"
+        }
+      ],
+      "answer": "**Done.** I've opened dispute **#1** for transaction TX-0601 under the reason \"goods not received\". Your dispute is now active and will be investigated. You have until **14 November 2026** to provide supporting evidence if requested.\n\nIs there anything else I can help you with?"
+    }
+  ]
+}

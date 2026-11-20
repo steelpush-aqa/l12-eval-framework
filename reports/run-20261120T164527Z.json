@@ -1,0 +1,71 @@
+{
+  "prompt_version": "base.v1",
+  "set_hash": "544b44ffb639",
+  "profile": "clean",
+  "judge_model": "not-used",
+  "rubric_version": "rubric.v1",
+  "elapsed": 6.2,
+  "set": "l12",
+  "gate": "daily",
+  "case_filter": [],
+  "stand_prompt_label": "base.v1",
+  "ran_at": "2026-11-20T16:45:27+00:00",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "total": 1,
+  "machine": {
+    "agent_calls": 1,
+    "cost_usd": 0.0
+  },
+  "unit_tests": {
+    "l11_dir": "/course/l11",
+    "manual": {
+      "exit_code": 0,
+      "passed": 6,
+      "failed": 0,
+      "summary": "6 passed in 0.02s"
+    },
+    "generated": {
+      "exit_code": 0,
+      "passed": 69,
+      "failed": 0,
+      "summary": "69 passed in 0.10s"
+    }
+  },
+  "exit_code": 0,
+  "cases": [
+    {
+      "id": "JNT-026",
+      "set": "l12",
+      "layer": "action",
+      "gate": "daily",
+      "assertion": "joint",
+      "passed": true,
+      "skipped": false,
+      "level": 4,
+      "detail": "all checks pass",
+      "checks": [
+        {
+          "label": "disputes_window_ok",
+          "level": 1,
+          "passed": true,
+          "detail": "вікно: pass"
+        },
+        {
+          "label": "compliance_hold_flag",
+          "level": 1,
+          "passed": true,
+          "detail": "compliance_hold стоїть"
+        },
+        {
+          "label": "cross_dispute_under_hold",
+          "level": 4,
+          "passed": true,
+          "detail": "рушій, інструмент і стан узгоджені"
+        }
+      ],
+      "answer": "Your case has been escalated to our support team (escalation ID: 1). They will review your dispute request and the restriction on your account, and contact you shortly to help resolve this."
+    }
+  ]
+}
