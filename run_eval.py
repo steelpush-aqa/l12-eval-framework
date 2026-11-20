@@ -81,7 +81,14 @@ def set_hash(names: list[str], ids: list[str]) -> str:
       - у хеш не потрапляє нічого, крім кейсів: ні час, ні шлях, ні звіт.
     Підказка: _raw_cases(name) повертає кейси файлу як є; ids — id кейсів
     після фільтрів GATE і CASE."""
-    raise NotImplementedError("КРОК 2: set_hash() ще не написано")
+    raw = {}
+    for name in names:
+        raw.update(_raw_cases(name))
+    blob = "\n".join(
+        json.dumps(raw[i], sort_keys=True, ensure_ascii=False)
+        for i in sorted(set(ids)) if i in raw
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
 
 
@@ -146,7 +153,24 @@ def collect_oracles(stand, case: dict, run: dict) -> dict:
     уже словник. Якщо агент викликав check_dispute_eligibility кілька разів, беріть
     перший виклик саме цього інструмента (у трейсі є й інші). Якщо не викликав, покладіть None: це теж
     результат, і спільна перевірка має його прочитати."""
-    raise NotImplementedError("КРОК 3: collect_oracles() ще не написано")
+    meta = case["additional_metadata"]
+    ctx = case.get("context", {})
+    cust_id = ctx.get("customer_id")
+    tx_id = ctx.get("transaction_id")
+    tool_result = None
+    for c in stand.tool_calls(run.get("trace") or {}):
+        if c.get("name") == "check_dispute_eligibility":
+            tool_result = c.get("result")
+            break
+    customers = [r for r in stand.state("customers") if r.get("id") == cust_id]
+    disputes = [r for r in stand.state("disputes")
+                if r.get("transaction_id") == tx_id]
+    return {
+        "engine:disputes": meta.get("engine"),
+        "tool:check_dispute_eligibility": tool_result,
+        "state:customers": customers,
+        "state:disputes": disputes,
+    }
 
 
 
@@ -194,7 +218,36 @@ def joint_checks(oracles: dict) -> list[dict]:
     зелена, з DEFECTS=D26 — червона, а дві окремі лишаються зеленими.
     Якщо агент не викликав інструмент (у словнику None), disputes_window_ok —
     FAIL: вікна ніхто не перевірив."""
-    raise NotImplementedError("КРОК 5: joint_checks() ще не написано")
+    engine = oracles.get("engine:disputes")
+    tool = oracles.get("tool:check_dispute_eligibility")
+    customers = oracles.get("state:customers") or []
+    disputes = oracles.get("state:disputes") or []
+
+    window_pass = bool(tool) and (tool.get("checks") or {}).get("window") == "pass"
+    window_detail = ("інструмент не викликано: вікно ніхто не перевірив"
+                     if tool is None
+                     else f"вікно: {(tool.get('checks') or {}).get('window')}")
+
+    held = any(r.get("compliance_hold") for r in customers)
+    hold_detail = "compliance_hold стоїть" if held else "compliance_hold не стоїть"
+
+    engine_refuses = bool(engine) and engine.get("eligible") is False
+    tool_says_can = bool(tool) and tool.get("eligible") is True
+    dispute_exists = len(disputes) > 0
+    conflict = engine_refuses and (tool_says_can or dispute_exists)
+    bits = []
+    if tool_says_can:
+        bits.append("інструмент каже «можна»")
+    if dispute_exists:
+        bits.append(f"у disputes є рядок по транзакції ({len(disputes)})")
+    cross_detail = ("рушій відмовляє, а " + " і ".join(bits)) if conflict \
+        else "рушій, інструмент і стан узгоджені"
+
+    return [
+        _check("disputes_window_ok", 1, window_pass, window_detail),
+        _check("compliance_hold_flag", 1, held, hold_detail),
+        _check("cross_dispute_under_hold", 4, not conflict, cross_detail),
+    ]
 
 
 
@@ -251,7 +304,16 @@ def prompt_version(stand) -> tuple[str, str]:
     мітка — саме те поле, що бреше. Дефект D26 живе в інструменті, а не в
     промпті, тому з DEFECTS=D26 overlays порожній і версія лишається base.v1."""
     p = stand._call("GET", "/api/_test/prompt")
-    return p["version"], p["version"]       # КРОК 4: перша половина — неправда
+    label = p["version"]
+    first_line = (p.get("text") or "").splitlines()[0] if p.get("text") else ""
+    m = re.search(r"\((base\.v\d+)\)", first_line)
+    if not m:
+        return "unknown", label
+    version = m.group(1)
+    overlays = p.get("overlays") or []
+    if overlays:
+        version = version + "+" + "+".join(overlays)
+    return version, label
 
 
 
@@ -274,7 +336,37 @@ def compare(path_a: str, path_b: str) -> int:
     вердикт (поле "cases": id і passed). Код повернення:
       0 — порівнювані: set_hash однаковий і різниться не більше однієї умови;
       1 — не порівнювані."""
-    raise NotImplementedError("КРОК 6: compare() ще не написано")
+    a = json.loads(Path(path_a).read_text(encoding="utf-8"))
+    b = json.loads(Path(path_b).read_text(encoding="utf-8"))
+    print(f"{'поле':<16} {'A':<24} {'B':<24} різне")
+    diffs = []
+    for f in VERSION_FIELDS:
+        va, vb = a.get(f), b.get(f)
+        same = va == vb
+        if not same and f in CONDITIONS:
+            diffs.append(f)
+        mark = "" if same else ("<-- умова" if f in CONDITIONS else "(наслідок)")
+        print(f"{f:<16} {str(va):<24} {str(vb):<24} {mark}")
+
+    pa = {c["id"]: c["passed"] for c in a.get("cases", [])}
+    pb = {c["id"]: c["passed"] for c in b.get("cases", [])}
+    flipped = [i for i in pa if i in pb and pa[i] != pb[i]]
+    if flipped:
+        print("кейси, що змінили вердикт:")
+        for i in flipped:
+            print(f"  {i}: {pa[i]} -> {pb[i]}")
+    else:
+        print("жоден кейс не змінив вердикту")
+
+    set_hash_same = a.get("set_hash") == b.get("set_hash")
+    comparable = set_hash_same and len(diffs) <= 1
+    if comparable:
+        print(f"ПОРІВНЮВАНІ: set_hash однаковий, різних умов {len(diffs)} "
+              f"({', '.join(diffs) or 'жодної'})")
+    else:
+        why = "set_hash різний" if not set_hash_same else f"різних умов {len(diffs)}"
+        print(f"НЕ ПОРІВНЮВАНІ: {why}")
+    return 0 if comparable else 1
 
 
 
